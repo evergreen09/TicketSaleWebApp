@@ -36,7 +36,7 @@ function App() {
 
   const handleEnterPress = (event) => {
     if (event.key === 'Enter' && userId.trim() !== '') {
-      fetchUserData();
+      sellTicket();
     }
   };
 /*
@@ -52,6 +52,50 @@ function App() {
     ]);
   }
 */
+
+  const addSaleDB = (jsonData) => {
+    fetch('http://127.0.0.1:5000/add_sale_db', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(jsonData),
+    })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+      return response.json();
+    })
+    .catch(error => {
+      setError(error);
+    });
+  }
+
+  const sellTicket = () => {
+    let t0 = performance.now();
+    const tempValue = userId
+    setUserId('')
+    fetch(`http://127.0.0.1:5000/sell_ticket_json/${tempValue}`)
+      .then(response => {
+        if (!response.ok) {
+          alert('Failed');
+          throw new Error('Network response was not ok');
+        }
+          return response.json();
+      })
+      .then(data => {
+        getTicketNumber();
+        setSaleData(data.table.reverse());
+        console.log(data.sales);
+        addSaleDB(data.sales);
+        let t1 = performance.now();
+        console.log(t1-t0)
+      })
+      .catch(error => {
+        setError(error);
+      });
+  };
 
   const fetchUserData = () => {
     const tempValue = userId
@@ -87,9 +131,11 @@ function App() {
           throw new Error('Network response was not ok');
         } 
         setUserId('');
-        getSaleData();
         getTicketNumber();
         return response.json();
+      })
+      .then(data => {
+        setSaleData(data.reverse());
       })
       .catch(error => {
         setError(error);
@@ -105,10 +151,14 @@ function App() {
           throw new Error('Network response error');
         }
         setName('');
-        setPurpose();
-        getSaleData();
+        setPurpose('');
         getTicketNumber();
         return response.json();
+      })
+      .then(data => {
+        setSaleData(data.table.reverse());
+        console.log(data.sales);
+        addSaleDB(data.sales);
       })
       .catch(error => {
         setError(error);
@@ -126,9 +176,11 @@ function App() {
         setNewUserID('');
         setName('');
         setStatus('');
-        getSaleData();
         getTicketNumber();
         return response.json();
+      })
+      .then(data => {
+        setSaleData(data.reverse());
       })
       .catch(error => {
         setError(error);
@@ -178,24 +230,6 @@ function App() {
       });
   }
 
-  const getSaleData = () => {
-    fetch('http://127.0.0.1:5000/get_sale_data', {
-      method: 'GET'
-    })
-      .then(response => {
-        if (!response.ok) {
-          throw new Error('Network response error');
-        }
-        return response.json();
-      })
-      .then(data => {
-        setSaleData(data.message.reverse())
-      })
-      .catch(error => {
-        setError(error);
-      });
-  }
-
   const saveExcel = () => {
     fetch(`http://127.0.0.1:5000/save_file`, {
       method: 'POST',
@@ -219,8 +253,10 @@ function App() {
         if (!response.ok) {
           throw new Error('Network response was not ok');
         } 
-        getSaleData();
         return response.json();
+      })
+      .then(data => {
+        setSaleData(data.reverse());
       })
       .catch(error => {
         setError(error);
@@ -237,7 +273,7 @@ function App() {
         onKeyDown={handleEnterPress}
         placeholder="Enter User ID"
       />
-      <button onClick={fetchUserData}>검색</button>
+      <button onClick={sellTicket}>검색</button>
       <button onClick={refundTicket}>환불</button>
       <Popup trigger=
         {<button>신규회원 추가</button>}
@@ -301,7 +337,7 @@ function App() {
         </Popup>  
       <button onClick={resetTicketNumber}>식권번호변경</button>
       <button onClick={saveExcel}>저장</button>
-      <button onClick={getSaleData}>DEBUG</button>
+      <button onClick={sellTicket}>DEBUG</button>
       <h2>{ticketNumber}</h2>
       {error && <div>Error: {error.message}</div>}
       <table>

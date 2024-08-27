@@ -17,16 +17,17 @@ class TempTicketNumber():
         self.ticket_number = ticket_number
 
 count = TicketNumber(1)
-temp = TempTicketNumber(0)
+temp = TempTicketNumber(None)
 
 month = f'{datetime.now().month:02}'
 date = f'{datetime.now().day:02}'
+json_name = 'sample.json'
 ticket_sale = None
 
 def get_ticket():
-    if temp.ticket_number != 0:
+    if temp.ticket_number is not None:
         temp_value = temp.ticket_number
-        temp.ticket_number = 0
+        temp.ticket_number = None
         return temp_value
     else:
         return count.ticket_number
@@ -62,7 +63,7 @@ def save_Excel():
     global month, date
     try:
         # Fetch all records from the TicketSale table
-        ticket_sales = TicketSale.query.all()
+        ticket_sales = ticket_sale.query.all()
 
         # Convert the list of TicketSale objects to a list of dictionaries
         ticket_sales_list = [ticket.to_json() for ticket in ticket_sales]
@@ -109,19 +110,6 @@ def save_Excel():
         return None
     except:
         return "Error Saving File"
-    
-@app.route('/get_sale_data', methods=['GET'])
-def get_sale_data():
-    global ticket_sale
-
-    ticket_sales = ticket_sale.query.all()
-
-    # Convert the list of TicketSale objects to a list of dictionaries
-    ticket_sales_list = [ticket.to_json() for ticket in ticket_sales]
-
-    if ticket_sales_list is None:
-        return jsonify({"message": "Error retrieving Sales data"}), 401
-    return jsonify({"message": ticket_sales_list}), 201
 
 @app.route('/sell_ticket', methods=['POST'])
 def sell_ticket():
@@ -165,19 +153,51 @@ def non_member(name, purpose_of_visit):
     if name is None or purpose_of_visit is None:
         return jsonify({"message": "Some entry is Missing"}), 400
     
-    sale_data = ticket_sale(user_id="비회원", name=name, status=purpose_of_visit, price=3500, ticket_number=get_ticket())
+    sale_data_dict = {
+        "user_id": "비회원",
+        "name": name,
+        "status": purpose_of_visit,
+        "price": 3500,
+        "ticket_number": get_ticket()
+    }
 
-    try:
-        db.session.add(sale_data)
-        db.session.commit()
-        count.ticket_number += 1
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
+    data = add_json(sale_data_dict)
+
+    response = {
+        "table": data,
+        "sales": sale_data_dict,
+    }
     
-    return jsonify({"message": "Sale Data Added"}), 201
+    return jsonify(response), 201
 
-@app.route('/find_user/<user_id>', methods=['GET'])
-def find_user(user_id):
+def add_json(dict):
+    global json_name
+    with open(json_name, 'r', encoding='utf-8') as file:
+        data = json.load(file)
+    
+    data.append(dict)
+
+    with open(json_name, 'w', encoding='utf-8') as file:
+            json.dump(data, file, ensure_ascii=False)
+
+    return data
+
+def deleteJSON(userID):
+    global json_name
+    with open(json_name, 'r', encoding='utf-8') as file:
+            user_data = json.load(file)
+
+    # Creates a new list that only includes data that does not have matching userID    
+    user_data = [data for data in user_data if data['userID'] != userID]
+
+    # Write the updated data back to the file
+    with open(json_name, 'w', encoding='utf-8') as file:
+        json.dump(user_data, file, indent=4, ensure_ascii=False)
+    
+    return user_data
+
+@app.route('/sell_ticket_json/<user_id>', methods=['GET'])
+def sell_ticket_json(user_id):
     user = UserData.query.filter_by(user_id=user_id).first()
     if user:
         sale_data = {
@@ -187,16 +207,36 @@ def find_user(user_id):
             "price": user.price,
             "ticketNumber": get_ticket()
         }
-        response = requests.post('http://localhost:5000/sell_ticket', json=sale_data)
-
-        # Check the response status code and content
-        if response.status_code == 201:
-            print("Success:", response.json())
-        elif response.status_code == 400:
-            print("Failed:", response.status_code, response.json())
+        data = add_json(sale_data)
+        response = {
+            "sales": sale_data,
+            "table": data
+        }
+        return jsonify(response), 201
     else:
         return jsonify({"message": "User not found"}), 404
-    return jsonify(sale_data), 201
+
+@app.route('/add_sale_db', methods=['POST'])
+def add_sale_db():
+    global ticket_sale
+    user_id = request.json.get("userID")
+    name = request.json.get("name")
+    status = request.json.get("status")
+    price = request.json.get("price")
+    ticket_number = request.json.get("ticketNumber")
+
+    if user_id is None or name is None or price is None:
+        return jsonify({"message": "Some entry is missing in API request"}), 400
+    
+    sale_data = ticket_sale(user_id=user_id, name=name, status=status, price=price, ticket_number=ticket_number)
+    try:
+        db.session.add(sale_data)
+        db.session.commit()
+        count.ticket_number += 1
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+    
+    return jsonify({"message": "Data Added"}), 201
 
 @app.route('/add_user', methods=['POST'])
 def add_user():
@@ -229,8 +269,9 @@ def refund_ticket(ticket_number):
 
     temp.ticket_number = ticket_number
     
+    data = deleteJSON(user.user_id)
 
-    return jsonify({"message": "Ticket Refunded"}), 201
+    return jsonify(data), 201
 
 @app.route('/add_new_user/<user_id>/<name>/<status>/', methods=['POST'])
 def add_new_user(user_id, name, status):
@@ -270,7 +311,8 @@ def add_new_user(user_id, name, status):
             "price": price,
             "ticketNumber": get_ticket()
         }
-    sale_response = requests.post('http://localhost:5000/sell_ticket', json=sale_data)
+    data = add_json(sale_data)
+    sale_response = requests.post('http://localhost:5000/add_sale_db', json=sale_data)
 
     # Check the response status code and content
     if sale_response.status_code == 201:
@@ -278,7 +320,7 @@ def add_new_user(user_id, name, status):
     elif sale_response.status_code == 400:
         print("Failed:", response.status_code, response.json())
 
-    return jsonify({"message": "User Added & Ticket Sold"}), 201
+    return jsonify(data), 201
 
 @app.route('/save_file', methods=['POST'])
 def save_file():
