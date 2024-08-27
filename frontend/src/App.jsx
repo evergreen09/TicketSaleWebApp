@@ -53,23 +53,29 @@ function App() {
   }
 */
 
-  const addSaleDB = (jsonData) => {
-    fetch('http://127.0.0.1:5000/add_sale_db', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(jsonData),
-    })
-    .then(response => {
+  const addSaleDB = async (jsonData) => {
+    try {
+      const response = await fetch('http://127.0.0.1:5000/add_sale_db', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(jsonData),
+      });
+
       if (!response.ok) {
-        throw new Error('Network response was not ok');
+        // You can add more specific error handling here
+        throw new Error(`HTTP error! Status: ${response.status}`);
       }
-      return response.json();
-    })
-    .catch(error => {
+
+      const data = await response.json();
+      // Handle the response data as needed
+      console.log('Success:', data);
+    } catch (error) {
+      // Ensure setError is defined and used correctly
+      console.error('Error:', error);
       setError(error);
-    });
+    }
   }
 
   const sellTicket = () => {
@@ -213,7 +219,7 @@ function App() {
   }
 
   const resetTicketNumber = () => {
-    tempValue = userId;
+    let tempValue = userId;
     setUserId('');
     fetch(`http://127.0.0.1:5000/reset_ticket_number/${tempValue}`, {
       method: 'POST'

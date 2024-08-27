@@ -28,6 +28,7 @@ def get_ticket():
     if temp.ticket_number is not None:
         temp_value = temp.ticket_number
         temp.ticket_number = None
+        count.ticket_number -= 1
         return temp_value
     else:
         return count.ticket_number
@@ -60,7 +61,7 @@ def add_new_user_Excel(userID, name, status):
         return "Error Adding User"
 
 def save_Excel():
-    global month, date
+    global month, date, ticket_sale
     try:
         # Fetch all records from the TicketSale table
         ticket_sales = ticket_sale.query.all()
@@ -154,11 +155,11 @@ def non_member(name, purpose_of_visit):
         return jsonify({"message": "Some entry is Missing"}), 400
     
     sale_data_dict = {
-        "user_id": "비회원",
+        "userID": "비회원",
         "name": name,
         "status": purpose_of_visit,
         "price": 3500,
-        "ticket_number": get_ticket()
+        "ticketNumber": get_ticket()
     }
 
     data = add_json(sale_data_dict)
@@ -182,13 +183,13 @@ def add_json(dict):
 
     return data
 
-def deleteJSON(userID):
+def deleteJSON(user_id):
     global json_name
     with open(json_name, 'r', encoding='utf-8') as file:
             user_data = json.load(file)
 
     # Creates a new list that only includes data that does not have matching userID    
-    user_data = [data for data in user_data if data['userID'] != userID]
+    user_data = [data for data in user_data if data['userID'] != user_id]
 
     # Write the updated data back to the file
     with open(json_name, 'w', encoding='utf-8') as file:
@@ -232,6 +233,7 @@ def add_sale_db():
     try:
         db.session.add(sale_data)
         db.session.commit()
+        
         count.ticket_number += 1
     except Exception as e:
         return jsonify({"error": str(e)}), 400
@@ -259,6 +261,7 @@ def add_user():
 
 @app.route('/refund_ticket/<int:ticket_number>', methods=['DELETE'])
 def refund_ticket(ticket_number):
+    global ticket_sale
     user = ticket_sale.query.filter_by(ticket_number=int(ticket_number)).first()
 
     if user == None:
