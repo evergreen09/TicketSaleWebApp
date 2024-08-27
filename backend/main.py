@@ -2,6 +2,7 @@ from flask import request, jsonify
 from config import app, db
 from models import UserData, TicketSale
 import requests
+import json
 from sqlalchemy import inspect, func
 from datetime import datetime
 from openpyxl import load_workbook
@@ -22,7 +23,7 @@ month = f'{datetime.now().month:02}'
 date = f'{datetime.now().day:02}'
 ticket_sale = None
 
-def checkForTemp():
+def get_ticket():
     if temp.ticket_number != 0:
         temp_value = temp.ticket_number
         temp.ticket_number = 0
@@ -129,7 +130,7 @@ def sell_ticket():
     name = request.json.get("name")
     status = request.json.get("status")
     price = request.json.get("price")
-    ticket_number = checkForTemp()
+    ticket_number = request.json.get("ticketNumber")
 
     if user_id is None or name is None or price is None:
         return jsonify({"message": "Some entry is missing in API request"}), 400
@@ -142,9 +143,9 @@ def sell_ticket():
     except Exception as e:
         return jsonify({"error": str(e)}), 400
     
-    return jsonify({"message": "Sale Data Added"}), 201
+    return jsonify({"message": sale_data}), 201
 
-@app.route('/get_ticket_number', methods=['POST'])
+@app.route('/get_ticket_number', methods=['GET'])
 def get_ticket_number():
     if count.ticket_number is None:
         return jsonify({"message": "Error retrieving Ticket Number"}), 401
@@ -164,7 +165,7 @@ def non_member(name, purpose_of_visit):
     if name is None or purpose_of_visit is None:
         return jsonify({"message": "Some entry is Missing"}), 400
     
-    sale_data = TicketSale(user_id="비회원", name=name, status=purpose_of_visit, price=3500, ticket_number=checkForTemp())
+    sale_data = ticket_sale(user_id="비회원", name=name, status=purpose_of_visit, price=3500, ticket_number=get_ticket())
 
     try:
         db.session.add(sale_data)
@@ -184,7 +185,7 @@ def find_user(user_id):
             "name": user.name,
             "status": user.status,
             "price": user.price,
-            "ticketNumber": checkForTemp()
+            "ticketNumber": get_ticket()
         }
         response = requests.post('http://localhost:5000/sell_ticket', json=sale_data)
 
@@ -195,7 +196,7 @@ def find_user(user_id):
             print("Failed:", response.status_code, response.json())
     else:
         return jsonify({"message": "User not found"}), 404
-    return jsonify({"message": "Ticket Sold"}), 201
+    return jsonify(sale_data), 201
 
 @app.route('/add_user', methods=['POST'])
 def add_user():
@@ -218,7 +219,7 @@ def add_user():
 
 @app.route('/refund_ticket/<int:ticket_number>', methods=['DELETE'])
 def refund_ticket(ticket_number):
-    user = TicketSale.query.filter_by(ticket_number=int(ticket_number)).first()
+    user = ticket_sale.query.filter_by(ticket_number=int(ticket_number)).first()
 
     if user == None:
         return jsonify({"message": "User not found"}), 404
@@ -267,7 +268,7 @@ def add_new_user(user_id, name, status):
             "name": name,
             "status": status,
             "price": price,
-            "ticketNumber": checkForTemp()
+            "ticketNumber": get_ticket()
         }
     sale_response = requests.post('http://localhost:5000/sell_ticket', json=sale_data)
 

@@ -39,6 +39,19 @@ function App() {
       fetchUserData();
     }
   };
+/*
+  function addSaleData(userId, name, status, price, ticketNumber) {
+    setSaleData([
+      ...saleData, {
+        "userID": userId,
+        "name": name,
+        "status": status,
+        "price": price,
+        "ticketNumber": ticketNumber
+      }
+    ]);
+  }
+*/
 
   const fetchUserData = () => {
     const tempValue = userId
@@ -51,7 +64,12 @@ function App() {
         }
         getTicketNumber();
         return response.json();
-      })
+      })/*.then(data => {
+        console.log(data)
+        let [userId, name, status, price, ticketNumber] = [data.userID, data.name, data.status, data.price, data.ticketNumber];
+        console.log(userId, name, status, price, ticketNumber )
+        addSaleData(userId, name, status, price, ticketNumber);      
+      })*/
       .catch(error => {
         setError(error);
       });
@@ -69,6 +87,7 @@ function App() {
           throw new Error('Network response was not ok');
         } 
         setUserId('');
+        getSaleData();
         getTicketNumber();
         return response.json();
       })
@@ -87,6 +106,7 @@ function App() {
         }
         setName('');
         setPurpose();
+        getSaleData();
         getTicketNumber();
         return response.json();
       })
@@ -106,6 +126,7 @@ function App() {
         setNewUserID('');
         setName('');
         setStatus('');
+        getSaleData();
         getTicketNumber();
         return response.json();
       })
@@ -116,7 +137,7 @@ function App() {
 
   const getTicketNumber = () => {
     fetch('http://127.0.0.1:5000/get_ticket_number', {
-      method: 'POST'
+      method: 'GET'
     })
       .then(response => {
         if (!response.ok) {
@@ -189,6 +210,22 @@ function App() {
         setError(error);
       });
   }
+
+  const refundTicketButton = ticketNumber => {
+    fetch(`http://127.0.0.1:5000/refund_ticket/${ticketNumber}`, {
+      method: 'DELETE',      
+    })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        } 
+        getSaleData();
+        return response.json();
+      })
+      .catch(error => {
+        setError(error);
+      });
+  };
 
   return (
     <div>
@@ -270,11 +307,12 @@ function App() {
       <table>
       <thead>
         <tr>
-          <th>User ID</th>
-          <th>User Name</th>
-          <th>Status</th>
-          <th>Price</th>
-          <th>Ticket Number</th>
+          <th>회원번호</th>
+          <th>이름</th>
+          <th>생활구분</th>
+          <th>가격</th>
+          <th>식권</th>
+          <th></th>
         </tr>
       </thead>
       <tbody>
@@ -285,6 +323,7 @@ function App() {
             <td>{item.status}</td>
             <td>{item.price}</td>
             <td>{item.ticketNumber}</td>
+            <td><button onClick={() => refundTicketButton(Number(item.ticketNumber))}>환불</button></td>
           </tr>
         ))}
       </tbody>
